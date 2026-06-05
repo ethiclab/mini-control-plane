@@ -171,7 +171,7 @@ If you just want to lurk: ⭐ and watch. If you want to argue: issues are open. 
 
 ## License
 
-**TBD.** A permissive license (likely MIT) will be added before wide circulation — if you have a preference, that's a valid RFC comment too. Until then, treat it as "all rights reserved, but ask and you'll almost certainly get a yes."
+[MIT](LICENSE) © EthicLab. Use it, fork it, learn from it.
 
 ---
 
