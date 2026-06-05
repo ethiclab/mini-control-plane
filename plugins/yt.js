@@ -204,12 +204,43 @@ function showHelp() {
     '  mini yt comment <ID> -m "<testo>"    # posta commento (usa `-` per stdin)\n' +
     '  mini yt link <parent> <child>        # crea link [--type Subtask|Relates|Depend]\n' +
     '  mini yt tag <ID> +<name>| -<name>    # aggiunge/rimuove tag\n' +
+    '  mini yt config                       # mostra percorso + contenuto ~/.youtrack (token mascherato)\n' +
     '  mini yt help                         # questo manuale\n' +
     '\n' +
     'CONFIG (~/.youtrack)\n' +
     '  YT_TOKEN, YT_AGILE_ID, YT_SPRINT_ID, YT_WIP_COLUMN, YT_RELEASE_COLUMN,\n' +
     '  YT_DONE_COLUMN, YT_DEFAULT_TYPE, YT_DEFAULT_PRIORITY, YT_DEFAULT_PROJECT,\n' +
     '  YT_QUESTION_TAG, YT_DEFAULT_LINK_TYPE\n');
+}
+
+function configPath() {
+  return require('path').join(require('os').homedir(), '.youtrack');
+}
+
+function maskSecret(value) {
+  const v = String(value || '');
+  if (v.length <= 8) return '****';
+  return `${v.slice(0, 5)}…**** (${v.length} char)`;
+}
+
+function showConfig() {
+  const fs = require('fs');
+  const file = configPath();
+  console.log(`\nConfig utente YouTrack:\n  ${file}\n`);
+  if (!fs.existsSync(file)) {
+    console.log('  ⚠️  file non trovato — crealo con almeno:\n      YT_TOKEN=perm:...\n');
+    return;
+  }
+  console.log('Contenuto (valori segreti mascherati):\n');
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)$/);
+    if (m && /TOKEN|PASSWORD|SECRET/.test(m[1])) {
+      console.log(`  ${m[1]}=${maskSecret(m[2])}`);
+    } else if (line.trim()) {
+      console.log(`  ${line.trim()}`);
+    }
+  }
+  console.log('');
 }
 
 function tokenError() {
@@ -539,12 +570,15 @@ module.exports = {
   describe: 'YouTrack (mini yt | <ID> | <PROJ> [state] | board | search | new | edit | move | wip | release | done | comments | comment | link | tag)',
 
   async run(args, ctx) {
+    const arg0 = args[0] || '';
+    // `config` deve funzionare anche senza token (serve a diagnosticarlo).
+    if (arg0 === 'config') return showConfig();
+
     const cfg = ctx.config.read(CONFIG_KEYS, '~/.youtrack', CONFIG_DEFAULTS);
     if (!cfg.YT_TOKEN) tokenError();
     YT_BASE = cfg.YT_BASE || YT_BASE;
     const token = cfg.YT_TOKEN;
 
-    const arg0 = args[0] || '';
     if (!arg0) {
       await showQueue(token, cfg, ctx);
       console.log(`  → mini yt help   per il manuale completo`);

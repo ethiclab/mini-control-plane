@@ -725,6 +725,65 @@ describe('yt plugin — help', async () => {
   });
 });
 
+describe('yt plugin — config', async () => {
+  const os = require('os');
+  const TEST_HOME = path.join(os.tmpdir(), 'mini-yt-config-home');
+  let origHome;
+
+  function setHome(withFile) {
+    fs.mkdirSync(TEST_HOME, { recursive: true });
+    const file = path.join(TEST_HOME, '.youtrack');
+    if (withFile) {
+      fs.writeFileSync(file, 'YT_TOKEN=perm:supersecrettoken123\nYT_AGILE_ID=0-0\nYT_WIP_COLUMN=In Progress\n');
+    } else if (fs.existsSync(file)) {
+      fs.unlinkSync(file);
+    }
+    origHome = process.env.HOME;
+    process.env.HOME = TEST_HOME;
+  }
+  function restoreHome() { if (origHome === undefined) delete process.env.HOME; else process.env.HOME = origHome; }
+
+  test('mostra il percorso assoluto del file di config', async () => {
+    setHome(true);
+    try {
+      const out = await captureOutput(async () => await plugin.run(['config'], createMockContext([])));
+      assert.ok(out.stdout.includes(path.join(TEST_HOME, '.youtrack')), 'mostra il path del dotfile');
+    } finally { restoreHome(); }
+  });
+
+  test('mostra il contenuto ma maschera i valori segreti', async () => {
+    setHome(true);
+    try {
+      const out = await captureOutput(async () => await plugin.run(['config'], createMockContext([])));
+      assert.ok(out.stdout.includes('YT_AGILE_ID=0-0'), 'mostra chiavi non segrete');
+      assert.ok(out.stdout.includes('In Progress'), 'mostra valori non segreti');
+      assert.ok(!out.stdout.includes('supersecrettoken123'), 'NON mostra il token in chiaro');
+      assert.ok(/YT_TOKEN=.*\*\*\*\*/.test(out.stdout), 'token mascherato con ****');
+    } finally { restoreHome(); }
+  });
+
+  test('maschera anche i token corti come ****', async () => {
+    fs.mkdirSync(TEST_HOME, { recursive: true });
+    fs.writeFileSync(path.join(TEST_HOME, '.youtrack'), 'YT_TOKEN=short\n');
+    origHome = process.env.HOME;
+    process.env.HOME = TEST_HOME;
+    try {
+      const out = await captureOutput(async () => await plugin.run(['config'], createMockContext([])));
+      assert.ok(out.stdout.includes('YT_TOKEN=****'), 'token corto → ****');
+      assert.ok(!out.stdout.includes('=short'), 'non rivela il valore corto');
+    } finally { restoreHome(); }
+  });
+
+  test('config funziona senza token e segnala file assente', async () => {
+    setHome(false);
+    try {
+      const out = await captureOutput(async () => await plugin.run(['config'], createMockContext([])));
+      assert.ok(out.stdout.includes(path.join(TEST_HOME, '.youtrack')), 'mostra comunque il path');
+      assert.ok(/non trovato|assente|manca/i.test(out.stdout), 'segnala che il file non esiste');
+    } finally { restoreHome(); }
+  });
+});
+
 describe('yt plugin — comments (read)', async () => {
   const fullList = [
     { id: 'c1', text: 'vecchio', author: { name: 'Ada' }, created: 1000 },
