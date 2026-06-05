@@ -1,0 +1,29 @@
+{
+  "$comment": "Fixture deterministica per i test cdk — valori fittizi, nessun dato reale.",
+  "profiles": {
+    "acme-test": {
+      "profile": "acme-test",
+      "account": "000000000000",
+      "region": "eu-west-1",
+      "rootDomain": "test.acme.example",
+      "defaultZoneName": "test.acme.example"
+    },
+    "acme-prod": {
+      "profile": "acme-prod",
+      "account": "000000000000",
+      "region": "eu-west-1",
+      "rootDomain": "acme.example",
+      "defaultZoneName": "acme.example"
+    }
+  },
+  "bundles": {
+    "web-a": {
+      "repo": "cluster/web-a",
+      "buildScript": "scripts/projects/web-a/buildStatic.sh"
+    },
+    "web-b": {
+      "repo": "cluster/web-b",
+      "buildScript": "scripts/projects/web-b/buildStatic.sh"
+    }
+  }
+}

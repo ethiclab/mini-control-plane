@@ -1,0 +1,67 @@
+#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+const { createContext } = require('../lib/plugin-context');
+
+const DEVEL_ROOT = path.resolve(__dirname, '..');
+
+function loadPlugins() {
+  const pluginsDir = path.join(DEVEL_ROOT, 'plugins');
+  const plugins = [];
+  if (!fs.existsSync(pluginsDir)) return plugins;
+  for (const file of fs.readdirSync(pluginsDir)) {
+    if (!file.endsWith('.js') || file.startsWith('_')) continue;
+    try {
+      plugins.push(require(path.join(pluginsDir, file)));
+    } catch (e) {
+      process.stderr.write(`Warning: failed to load plugin ${file}: ${e.message}\n`);
+    }
+  }
+  return plugins;
+}
+
+function usage(plugins) {
+  console.error('Usage: mini <command> [args]');
+  console.error('');
+  console.error('Plugins:');
+  for (const plugin of plugins) {
+    console.error(`  ${plugin.commands.join(', ').padEnd(25)} ${plugin.describe}`);
+  }
+  console.error('');
+  console.error('  help                           mostra questo messaggio');
+  console.error('  version                        mostra versione');
+}
+
+async function main() {
+  const plugins = loadPlugins();
+  const ctx = createContext(DEVEL_ROOT);
+  const command = process.argv[2];
+
+  if (!command || command === 'help' || command === '--help' || command === '-h') {
+    usage(plugins);
+    return;
+  }
+
+  if (command === 'version' || command === '--version') {
+    const pkg = JSON.parse(fs.readFileSync(path.join(DEVEL_ROOT, 'package.json'), 'utf8'));
+    console.log(`mini v${pkg.version || '0.0.0'}`);
+    return;
+  }
+
+  for (const plugin of plugins) {
+    if ((plugin.commands || [plugin.name]).includes(command)) {
+      const result = plugin.run(process.argv.slice(3), ctx);
+      if (result && typeof result.then === 'function') await result;
+      return;
+    }
+  }
+
+  console.error(`Unknown command: ${command}`);
+  usage(plugins);
+  process.exit(1);
+}
+
+main().catch((error) => {
+  console.error(error.message || error);
+  process.exit(1);
+});

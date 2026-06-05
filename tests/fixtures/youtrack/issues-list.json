@@ -1,0 +1,23 @@
+[
+  {
+    "idReadable": "DEMO-101",
+    "summary": "Fix login redirect loop on backoffice",
+    "customFields": [
+      { "name": "State", "value": { "name": "In Progress" } }
+    ]
+  },
+  {
+    "idReadable": "DEMO-100",
+    "summary": "Add payment provider health check endpoint",
+    "customFields": [
+      { "name": "State", "value": { "name": "In Progress" } }
+    ]
+  },
+  {
+    "idReadable": "DEMO-99",
+    "summary": "Fix broken annotation in value repository",
+    "customFields": [
+      { "name": "State", "value": { "name": "Open" } }
+    ]
+  }
+]

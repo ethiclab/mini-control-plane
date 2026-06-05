@@ -1,0 +1,15 @@
+{
+  "name": "mini-cli",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EthicLab personal CLI orchestrator",
+  "scripts": {
+    "test": "node --test tests/plugins/*.test.js tests/lib/*.test.js",
+    "test:watch": "node --test --watch tests/plugins/*.test.js tests/lib/*.test.js",
+    "test:yt": "node --test tests/plugins/yt.test.js",
+    "test:bb": "node --test tests/plugins/bitbucket.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

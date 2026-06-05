@@ -1,0 +1,30 @@
+{
+  "name": "youtrack-board",
+  "columnSettings": {
+    "columns": [
+      {
+        "id": "col-wip",
+        "presentation": "In Progress",
+        "fieldValues": [
+          { "name": "In Progress" },
+          { "name": "Active" }
+        ]
+      },
+      {
+        "id": "col-open",
+        "presentation": "Open",
+        "fieldValues": [{ "name": "Open" }]
+      },
+      {
+        "id": "col-release",
+        "presentation": "To Release",
+        "fieldValues": [{ "name": "Ready for Release" }]
+      },
+      {
+        "id": "col-done",
+        "presentation": "Done",
+        "fieldValues": [{ "name": "Done" }]
+      }
+    ]
+  }
+}

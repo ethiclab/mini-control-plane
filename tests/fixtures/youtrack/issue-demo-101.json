@@ -1,0 +1,14 @@
+{
+  "idReadable": "DEMO-101",
+  "summary": "Fix login redirect loop on backoffice",
+  "description": "When user logs in from /backoffice/login, the redirect after auth sends them to an infinite loop.\n\nSteps to reproduce:\n1. Go to /backoffice/login\n2. Enter valid credentials\n3. Observe redirect loop",
+  "reporter": { "login": "montoyaedu" },
+  "created": 1738368000000,
+  "updated": 1743897600000,
+  "customFields": [
+    { "name": "State", "value": { "name": "In Progress" } },
+    { "name": "Priority", "value": { "name": "Major" } },
+    { "name": "Assignee", "value": { "name": "montoyaedu" } },
+    { "name": "Sprint", "value": { "name": "Sprint 12" } }
+  ]
+}

@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+apps/static-web-cdk/node_modules/
+
+# CDK build output
+apps/static-web-cdk/cdk.out/
+apps/static-web-cdk/cdk.context.json
+
+# Secrets / env
+.env
+.env.*.local
+!.env.example
+
+# Personal shell config (may contain secrets)
+.zshrc
+
+# CDK manifest cache (auto-created by plugin)
+config/webapps/
+
+# CDK real config (account ID, domini cliente, bundle interni) — usa config/cdk.example.json come template
+config/cdk.json
+
+# OS files
+.DS_Store
+
+# Logs
+*.log
+
+# Test coverage
+coverage/
+
+# BEADS runtime (metaswarm) — keep .beads/knowledge/ committed, ignore working state
+.beads/beads.db
+.beads/daemon.lock
+.beads/daemon.pid
+.beads/daemon.log
+.beads/temp/
+.beads/context/
+.beads/plans/

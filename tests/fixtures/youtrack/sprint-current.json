@@ -1,0 +1,26 @@
+{
+  "board": {
+    "orphanRow": {
+      "cells": []
+    },
+    "trimmedSwimlanes": [
+      {
+        "cells": [
+          {
+            "column": { "id": "col-wip" },
+            "issues": [
+              { "idReadable": "DEMO-101", "summary": "Fix login redirect loop on backoffice" },
+              { "idReadable": "DEMO-102", "summary": "Add status badge to record detail view" }
+            ]
+          },
+          {
+            "column": { "id": "col-open" },
+            "issues": [
+              { "idReadable": "DEMO-103", "summary": "Migrate nightly batch job" }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
