@@ -28,10 +28,10 @@ function authHeader(cfg) {
   return null;
 }
 
-function apiGet(urlPath, auth) {
+function apiGet(urlPath, auth, host) {
   return new Promise((resolve, reject) => {
     const opts = {
-      hostname: 'api.bitbucket.org',
+      hostname: host,
       path: urlPath,
       headers: { Authorization: auth, Accept: 'application/json' },
     };
@@ -46,11 +46,11 @@ function apiGet(urlPath, auth) {
   });
 }
 
-async function allPages(firstPath, auth) {
+async function allPages(firstPath, auth, host) {
   let results = [], next = firstPath;
   while (next) {
     const url = next.startsWith('http') ? new URL(next).pathname + new URL(next).search : next;
-    const page = await apiGet(url, auth);
+    const page = await apiGet(url, auth, host);
     if (page.error) throw new Error(page.error.message);
     results = results.concat(page.values || []);
     next = page.next ? page.next : null;
@@ -114,6 +114,8 @@ module.exports = {
     const cfg = readConfig();
     // Lo workspace NON è hardcoded: impostalo in ~/.bitbucket come BITBUCKET_WORKSPACE=<tuo-workspace>.
     const workspace = cfg.BITBUCKET_WORKSPACE || '';
+    // Host API esplicito/sovrascrivibile (env > dotfile > default): permette fake nei test o Bitbucket self-hosted.
+    const apiHost = process.env.BITBUCKET_API_HOST || cfg.BITBUCKET_API_HOST || 'api.bitbucket.org';
     const auth = authHeader(cfg);
 
     if (!auth && subcommand !== 'help') {
@@ -131,7 +133,7 @@ Aggiungi un App Password (consigliato):
     }
 
     if (subcommand === 'list') {
-      const repos = await allPages(`/2.0/repositories/${workspace}?pagelen=50&sort=-updated_on`, auth)
+      const repos = await allPages(`/2.0/repositories/${workspace}?pagelen=50&sort=-updated_on`, auth, apiHost)
         .catch(e => {
           console.error(`\n❌ API error: ${e.message}`);
           process.exit(1);
@@ -163,7 +165,7 @@ Aggiungi un App Password (consigliato):
         }
       } catch (_) {}
 
-      const repos = await allPages(`/2.0/repositories/${workspace}?pagelen=50&sort=-updated_on`, auth)
+      const repos = await allPages(`/2.0/repositories/${workspace}?pagelen=50&sort=-updated_on`, auth, apiHost)
         .catch(e => { console.error(`❌ API error: ${e.message}`); process.exit(1); });
       console.log(`\nConfronto Bitbucket '${workspace}'  ↔  locale\n`);
       for (const r of repos) {
@@ -188,8 +190,9 @@ mini bitbucket <subcommand>
   compare         confronta Bitbucket remoto vs locale
   update-token T  aggiorna BITBUCKET_TOKEN in ~/.bitbucket
 
-Config: ${DOTFILE}
-Workspace: ${workspace}
+Config: ${DOTFILE}  (BITBUCKET_USERNAME, BITBUCKET_APP_PASSWORD, BITBUCKET_WORKSPACE, BITBUCKET_API_HOST)
+Workspace: ${workspace || '(non impostato)'}
+API host:  ${apiHost}
 `);
   },
 };

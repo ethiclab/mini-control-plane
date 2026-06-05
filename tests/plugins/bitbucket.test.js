@@ -99,6 +99,50 @@ describe('bitbucket plugin — list', () => {
   });
 });
 
+describe('bitbucket plugin — API host configurabile', () => {
+  test('usa BITBUCKET_API_HOST (override env) → iniettabile come fake', async () => {
+    const restore = setupFakeHome(true);
+    const origHost = process.env.BITBUCKET_API_HOST;
+    process.env.BITBUCKET_API_HOST = 'fake.bitbucket.local';
+    const matchers = [pathMatcher('/2.0/repositories/', bbPage(fixture('repos.json')))];
+
+    let captured;
+    try {
+      await withHttpsMock(matchers, PLUGIN_PATH, async (plugin, calls) => {
+        await captureAsync(() => plugin.run(['list'], CONTEXT));
+        captured = calls;
+      });
+    } finally {
+      if (origHost === undefined) delete process.env.BITBUCKET_API_HOST;
+      else process.env.BITBUCKET_API_HOST = origHost;
+      restore();
+    }
+
+    assert.ok(captured.length > 0, 'almeno una richiesta effettuata');
+    assert.ok(captured.every((c) => c.hostname === 'fake.bitbucket.local'), 'tutte le richieste usano l\'host configurato');
+  });
+
+  test('default = api.bitbucket.org se non configurato', async () => {
+    const restore = setupFakeHome(true);
+    const origHost = process.env.BITBUCKET_API_HOST;
+    delete process.env.BITBUCKET_API_HOST;
+    const matchers = [pathMatcher('/2.0/repositories/', bbPage(fixture('repos.json')))];
+
+    let captured;
+    try {
+      await withHttpsMock(matchers, PLUGIN_PATH, async (plugin, calls) => {
+        await captureAsync(() => plugin.run(['list'], CONTEXT));
+        captured = calls;
+      });
+    } finally {
+      if (origHost !== undefined) process.env.BITBUCKET_API_HOST = origHost;
+      restore();
+    }
+
+    assert.ok(captured.every((c) => c.hostname === 'api.bitbucket.org'), 'usa l\'host di default');
+  });
+});
+
 describe('bitbucket plugin — local', () => {
   test('mostra "(nessuno trovato)" in una dir senza repo Bitbucket', async () => {
     const restore = setupFakeHome(true);

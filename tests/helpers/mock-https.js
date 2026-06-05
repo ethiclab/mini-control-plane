@@ -66,7 +66,9 @@ async function withHttpsMock(matchers, pluginPath, fn) {
 
   https.get = (opts, callback) => {
     const urlPath = typeof opts === 'string' ? opts : (opts.path || opts.pathname || '');
-    calls.push(urlPath);
+    const hostname = typeof opts === 'string' ? null : (opts.hostname || null);
+    // calls: array di { path, hostname } per asserzioni su path e host delle richieste.
+    calls.push({ path: urlPath, hostname });
 
     for (const m of matchers) {
       if (m.match(urlPath)) {

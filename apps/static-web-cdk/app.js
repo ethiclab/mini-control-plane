@@ -93,13 +93,14 @@ const domainName = app.node.tryGetContext('domainName');
 const zoneName = app.node.tryGetContext('zoneName');
 const sitePath = app.node.tryGetContext('sitePath') || path.join(__dirname, 'empty-site');
 const account = app.node.tryGetContext('account');
-const region = app.node.tryGetContext('region') || 'eu-west-1';
+const region = app.node.tryGetContext('region');
 const bundleId = app.node.tryGetContext('bundleId') || '';
 const version = app.node.tryGetContext('version') || '';
 const comment = app.node.tryGetContext('comment') || `Static web app ${domainName || ''}`.trim();
 
-if (!stackName || !domainName || !zoneName) {
-  throw new Error('Missing required CDK context: stackName, domainName, zoneName');
+// Tutto esplicito: nessun default geografico/account silenzioso (evita deploy nel posto sbagliato).
+if (!stackName || !domainName || !zoneName || !account || !region) {
+  throw new Error('Missing required CDK context: stackName, domainName, zoneName, account, region');
 }
 
 new StaticWebAppStack(app, stackName, {
