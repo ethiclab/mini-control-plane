@@ -15,11 +15,25 @@ module.exports = {
   commands: ['cmd1', 'cmd2'],   // comandi che attivano questo plugin
   describe: 'Descrizione breve',
   async run(args, context) {
-    // args   = process.argv.slice(3) (es. ['DEMO-123'])
-    // context = { DEVEL_ROOT, path, fs }
+    // args    = process.argv.slice(3) (es. ['DEMO-123'])
+    // context = { http, shell, config, prompt, format, fs, path, develRoot }
+    //           tutto l'I/O passa da qui → testabile con i fake in tests/helpers/
   }
 };
 ```
+
+Il `context` (costruito in `lib/plugin-context.js`, faked in `tests/helpers/`):
+
+| Servizio | Forma | Uso |
+|---|---|---|
+| `context.http` | `request(method, url, opts)` | HTTP (fake nei test) |
+| `context.shell` | `run(...)`, `capture(...)` | sottoprocessi (fake nei test) |
+| `context.config` | `read(keys, dotfile, defaults)` | legge `~/.<tool>` + env + default |
+| `context.prompt` | `yesNo`, `input`, `choice` | prompt interattivi |
+| `context.format` | `table(headers, rows)` | tabelle ASCII |
+| `context.fs` · `context.path` · `context.develRoot` | built-in + root repo | filesystem |
+
+**Mai** usare `require('https')`/`child_process` direttamente: passa sempre da `context` (è ciò che rende i plugin testabili offline).
 
 Regole:
 - `commands` è un array di stringhe — tutti gli alias devono essere in questa lista.
@@ -35,6 +49,7 @@ Regole:
 |------|---------|-------------|
 | `yt.js` | `youtrack`, `yt` | YouTrack ticket management |
 | `bitbucket.js` | `bitbucket`, `bb` | Bitbucket repo management |
+| `cdk.js` | `cdk`, `webapp` | Deploy webapp statiche su AWS (CDK + CloudFront + S3) |
 
 ---
 
@@ -49,7 +64,8 @@ Regole:
 
 ## Credenziali e config
 
-- **YouTrack**: `YT_TOKEN` env var, oppure `~/.youtrack` (formato: `YT_TOKEN=<token>`)
-- **Bitbucket**: `~/.bitbucket` (formato: `BITBUCKET_TOKEN=<token>` o `BITBUCKET_USERNAME=` + `BITBUCKET_APP_PASSWORD=`)
+- **YouTrack**: `~/.youtrack` (`YT_TOKEN`, `YT_BASE`, e i default operativi: board, colonne, progetto, priorità). Env var hanno precedenza.
+- **Bitbucket**: `~/.bitbucket` (`BITBUCKET_TOKEN` oppure `BITBUCKET_USERNAME`+`BITBUCKET_APP_PASSWORD`, più `BITBUCKET_WORKSPACE` e `BITBUCKET_API_HOST`).
+- **CDK**: `config/cdk.json` (gitignored) — profili AWS e bundle. Template: `config/cdk.example.json`.
 
-Non hardcodare token nei plugin.
+**Non hardcodare** token, account, host, domini o valori d'ambiente nei plugin: solo placeholder generici nel codice, valori reali fuori dal repo. Se un valore richiesto manca, fallire in modo esplicito.
