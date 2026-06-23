@@ -339,7 +339,7 @@ async function showQueue(token, cfg, ctx) {
     console.log('  Nessun ticket trovato.');
   } else {
     issues.forEach((issue, i) => {
-      console.log(`  ${i === 0 ? '▶ ora: ' : '  poi: '}  ${issue.idReadable.padEnd(12)} ${issue.summary.substring(0, 65)}`);
+      console.log(`  ${i === 0 ? '▶ ora: ' : '  poi: '}  ${(issue.idReadable || '?').padEnd(12)} ${(issue.summary || '').substring(0, 65)}`);
     });
     console.log(`\n  → mini yt ${issues[0].idReadable}   per dettaglio`);
   }
@@ -405,7 +405,7 @@ async function listIssues(project, stateFilter, token, ctx) {
   for (const issue of issues) {
     const stateCf = (issue.customFields || []).find((cf) => cf.name === 'State');
     const stateTag = stateCf?.value?.name ? ` [${stateCf.value.name}]` : '';
-    console.log(`  ${issue.idReadable.padEnd(12)} ${issue.summary.substring(0, 75)}${stateTag}`);
+    console.log(`  ${(issue.idReadable || '?').padEnd(12)} ${(issue.summary || '').substring(0, 75)}${stateTag}`);
   }
 }
 
@@ -447,7 +447,7 @@ async function searchIssues({ query, top, json }, token, ctx) {
   for (const issue of issues) {
     const stateCf = (issue.customFields || []).find((cf) => cf.name === 'State');
     const stateTag = stateCf?.value?.name ? ` [${stateCf.value.name}]` : '';
-    console.log(`  ${issue.idReadable.padEnd(12)} ${issue.summary.substring(0, 75)}${stateTag}`);
+    console.log(`  ${(issue.idReadable || '?').padEnd(12)} ${(issue.summary || '').substring(0, 75)}${stateTag}`);
   }
   console.log('');
 }

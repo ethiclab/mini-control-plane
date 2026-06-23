@@ -15,7 +15,7 @@ This project has [metaswarm](https://github.com/dsifry/metaswarm) installed but 
 
 - **TDD is the default for non-trivial code** — write the test first, watch it fail, then implement. For a trivial one-liner, a test-after is fine.
 - Test command: `npm test` (= `node --test tests/bin/*.test.js tests/plugins/*.test.js tests/lib/*.test.js`)
-- Coverage command: `node --test --experimental-test-coverage --test-coverage-exclude='tests/**' --test-coverage-lines=84 --test-coverage-functions=86 --test-coverage-branches=80 tests/bin/*.test.js tests/plugins/*.test.js tests/lib/*.test.js` (excludes `tests/` so the gate measures only production code: `bin/` + `lib/` + `plugins/`)
+- Coverage command: `node --test --experimental-test-coverage --test-coverage-exclude='tests/**' --test-coverage-lines=86 --test-coverage-functions=86 --test-coverage-branches=80 tests/bin/*.test.js tests/plugins/*.test.js tests/lib/*.test.js` (excludes `tests/` so the gate measures only production code: `bin/` + `lib/` + `plugins/`)
 - Test runner is Node's built-in `node:test` — **no test framework dependency**. Keep it that way.
 - **Fakes over live calls**: network/IO services (YouTrack, AWS, `exec`) are tested through extensible simulators in `tests/helpers/` (`mock-context.js`, `mock-exec.js`) backed by recorded fixtures in `tests/fixtures/`. To cover a new branch, capture the real interaction from the tool's logs, drop a new fixture JSON, and let the simulator replay it — add data, not mock logic. Keep recorded fixtures (what the server returned) separate from simulator logic (how the fake picks a fixture).
 
@@ -23,7 +23,7 @@ This project has [metaswarm](https://github.com/dsifry/metaswarm) installed but 
 
 `.coverage-thresholds.json` is the **source of truth** for coverage. Its thresholds are the **honest current floor**, not the 100% aspiration — set so the documented command actually *passes* (a gate that's always red is no gate). **Ratchet policy:** when coverage improves, raise the thresholds to lock it in; never lower them to make a change pass. 100% on production code remains the target to drive toward incrementally by growing fixtures/simulators, not by deleting code paths.
 
-Current floor (2026-06-23, 112 tests, production code = `bin/` + `lib/` + `plugins/`): **84.19% lines / 80.24% branches / 86.27% functions**. Largest gap: `lib/plugin-context.js` (~58% — prompt/http/shell/readConfig branches).
+Current floor (2026-06-23, 115 tests, production code = `bin/` + `lib/` + `plugins/`): **86.61% lines / 80.50% branches / 86.54% functions** (thresholds ratcheted to 86/80/86). Largest gap: `lib/plugin-context.js` (~58% — the real `prompt`/`http` impls use `readline`/`https`, so closing it cleanly needs stream/server test seams without breaking the no-network rule; left as documented ongoing work).
 
 ## Code Quality
 
