@@ -88,7 +88,7 @@ module.exports = {
 
 **Configuration model.** Each tool reads a user dotfile (`~/.youtrack`) in `KEY=value` form, with environment variables taking precedence and code shipping generic defaults. The CDK tool reads git-ignored `config/cdk.json` (template: `config/cdk.example.json`). The source tree contains **no** real accounts, domains, hostnames, or tokens.
 
-**Testing model.** `node:test` only. No network, ever. HTTP and shell are replaced by fakes (`tests/helpers/mock-*.js`) that match requests and replay JSON fixtures (`tests/fixtures/`). Coverage is enforced against `.coverage-thresholds.json`.
+**Testing model.** `node:test` only. No network, ever. The test `context` is derived from the real `createContext` (`tests/helpers/mock-context.js`), with HTTP/shell/prompt swapped for fakes that match requests and replay JSON fixtures (`tests/fixtures/`); `tests/helpers/capture-output.js` captures CLI output. Coverage is enforced against `.coverage-thresholds.json`.
 
 ---
 
