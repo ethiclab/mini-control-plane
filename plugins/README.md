@@ -48,7 +48,6 @@ Regole:
 | File | Comandi | Descrizione |
 |------|---------|-------------|
 | `yt.js` | `youtrack`, `yt` | YouTrack ticket management |
-| `bitbucket.js` | `bitbucket`, `bb` | Bitbucket repo management |
 | `cdk.js` | `cdk`, `webapp` | Deploy webapp statiche su AWS (CDK + CloudFront + S3) |
 
 ---
@@ -65,7 +64,6 @@ Regole:
 ## Credenziali e config
 
 - **YouTrack**: `~/.youtrack` (`YT_TOKEN`, `YT_BASE`, e i default operativi: board, colonne, progetto, priorità). Env var hanno precedenza.
-- **Bitbucket**: `~/.bitbucket` (`BITBUCKET_TOKEN` oppure `BITBUCKET_USERNAME`+`BITBUCKET_APP_PASSWORD`, più `BITBUCKET_WORKSPACE` e `BITBUCKET_API_HOST`).
 - **CDK**: `config/cdk.json` (gitignored) — profili AWS e bundle. Template: `config/cdk.example.json`.
 
 **Non hardcodare** token, account, host, domini o valori d'ambiente nei plugin: solo placeholder generici nel codice, valori reali fuori dal repo. Se un valore richiesto manca, fallire in modo esplicito.
