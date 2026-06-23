@@ -4,8 +4,8 @@
   "private": true,
   "description": "EthicLab personal CLI orchestrator",
   "scripts": {
-    "test": "node --test tests/plugins/*.test.js tests/lib/*.test.js",
-    "test:watch": "node --test --watch tests/plugins/*.test.js tests/lib/*.test.js",
+    "test": "node --test tests/bin/*.test.js tests/plugins/*.test.js tests/lib/*.test.js",
+    "test:watch": "node --test --watch tests/bin/*.test.js tests/plugins/*.test.js tests/lib/*.test.js",
     "test:yt": "node --test tests/plugins/yt.test.js"
   },
   "engines": {

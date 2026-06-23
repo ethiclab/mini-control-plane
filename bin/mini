@@ -5,19 +5,21 @@ const { createContext } = require('../lib/plugin-context');
 
 const DEVEL_ROOT = path.resolve(__dirname, '..');
 
-function loadPlugins() {
-  const pluginsDir = path.join(DEVEL_ROOT, 'plugins');
+function loadPlugins(root = DEVEL_ROOT) {
+  const pluginsDir = path.join(root, 'plugins');
   const plugins = [];
-  if (!fs.existsSync(pluginsDir)) return plugins;
+  const failures = [];
+  if (!fs.existsSync(pluginsDir)) return { plugins, failures };
   for (const file of fs.readdirSync(pluginsDir)) {
     if (!file.endsWith('.js') || file.startsWith('_')) continue;
     try {
       plugins.push(require(path.join(pluginsDir, file)));
     } catch (e) {
+      failures.push({ file, error: e.message });
       process.stderr.write(`Warning: failed to load plugin ${file}: ${e.message}\n`);
     }
   }
-  return plugins;
+  return { plugins, failures };
 }
 
 function usage(plugins) {
@@ -32,10 +34,10 @@ function usage(plugins) {
   console.error('  version                        mostra versione');
 }
 
-async function main() {
-  const plugins = loadPlugins();
-  const ctx = createContext(DEVEL_ROOT);
-  const command = process.argv[2];
+async function main(argv = process.argv, root = DEVEL_ROOT) {
+  const { plugins, failures } = loadPlugins(root);
+  const ctx = createContext(root);
+  const command = argv[2];
 
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     usage(plugins);
@@ -43,25 +45,36 @@ async function main() {
   }
 
   if (command === 'version' || command === '--version') {
-    const pkg = JSON.parse(fs.readFileSync(path.join(DEVEL_ROOT, 'package.json'), 'utf8'));
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
     console.log(`mini v${pkg.version || '0.0.0'}`);
     return;
   }
 
   for (const plugin of plugins) {
     if ((plugin.commands || [plugin.name]).includes(command)) {
-      const result = plugin.run(process.argv.slice(3), ctx);
+      const result = plugin.run(argv.slice(3), ctx);
       if (result && typeof result.then === 'function') await result;
       return;
     }
   }
 
   console.error(`Unknown command: ${command}`);
+  // Fail loud: if a plugin failed to load this run, the command may have belonged
+  // to it — connect cause to symptom instead of a bare "Unknown command".
+  if (failures.length) {
+    console.error('');
+    console.error(`Nota: ${failures.length} plugin non caricato/i in questa esecuzione — "${command}" potrebbe appartenere a uno di essi:`);
+    for (const f of failures) console.error(`  ${f.file}: ${f.error}`);
+  }
   usage(plugins);
   process.exit(1);
 }
 
-main().catch((error) => {
-  console.error(error.message || error);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.message || error);
+    process.exit(1);
+  });
+}
+
+module.exports = { loadPlugins, usage, main };
