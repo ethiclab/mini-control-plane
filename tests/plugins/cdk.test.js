@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const path = require('path');
 const fs = require('fs');
 
-const { captureOutput } = require('../helpers/mock-exec');
+const { captureOutput } = require('../helpers/capture-output');
 const { createMockContext } = require('../helpers/mock-context');
 
 const plugin = require('../../plugins/cdk');
