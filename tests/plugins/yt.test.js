@@ -984,3 +984,39 @@ describe('yt plugin — base URL is per-invocation (no module global leak)', () 
     assert.ok(!urlB.startsWith('https://aaa.example.com'), 'il run B non deve ereditare la base del run A');
   });
 });
+
+describe('yt plugin — render robusto a campi mancanti', () => {
+  // Una issue senza summary/idReadable non deve far esplodere il render con uno
+  // stack trace grezzo: il loop deve completare (output presente) usando i default.
+  test('listIssues renderizza issue senza summary o senza idReadable', async () => {
+    const ctx = createMockContext([
+      getMatcher('/api/issues?fields=', [
+        { idReadable: 'DEMO-1' },   // summary mancante
+        { summary: 'senza id' },    // idReadable mancante
+      ]),
+    ]);
+    const out = await captureOutput(async () => await plugin.run(['DEMO', 'open'], ctx));
+    assert.match(out.stdout, /DEMO-1/, 'issue senza summary comunque renderizzata');
+    assert.match(out.stdout, /senza id/, 'issue senza idReadable comunque renderizzata');
+    assert.match(out.stdout, /\?/, 'placeholder "?" per idReadable mancante');
+  });
+
+  test('searchIssues renderizza issue senza summary', async () => {
+    const ctx = createMockContext([
+      getMatcher('/api/issues', [{ idReadable: 'DEMO-9' }]),
+    ]);
+    const out = await captureOutput(async () => await plugin.run(['search', 'qualcosa'], ctx));
+    assert.match(out.stdout, /DEMO-9/, 'render completato senza eccezioni');
+  });
+
+  test('showQueue (fallback) renderizza issue con campi mancanti', async () => {
+    // board/sprint non matchati → l'errore è swallowed dai try/catch → fallback su /api/issues.
+    const ctx = createMockContext([
+      getMatcher('/api/issues?fields=', [{ idReadable: 'Q-1' }, { summary: 'no id' }]),
+    ]);
+    const out = await captureOutput(async () => await plugin.run([], ctx));
+    assert.match(out.stdout, /Q-1/, 'issue senza summary renderizzata');
+    assert.match(out.stdout, /no id/, 'issue senza idReadable renderizzata');
+    assert.match(out.stdout, /\?/, 'placeholder "?" per idReadable mancante');
+  });
+});

@@ -2,13 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$comment": "Coverage thresholds for orchestrator agents and CI. Set to the honest current floor (production code = bin/ + lib/ + plugins/); ratchet upward as fixtures grow — never lower to pass. Target remains 100%.",
   "thresholds": {
-    "lines": 84,
+    "lines": 86,
     "branches": 80,
     "functions": 86,
-    "statements": 84
+    "statements": 86
   },
   "enforcement": {
-    "command": "node --test --experimental-test-coverage --test-coverage-exclude='tests/**' --test-coverage-lines=84 --test-coverage-functions=86 --test-coverage-branches=80 tests/bin/*.test.js tests/plugins/*.test.js tests/lib/*.test.js",
+    "command": "node --test --experimental-test-coverage --test-coverage-exclude='tests/**' --test-coverage-lines=86 --test-coverage-functions=86 --test-coverage-branches=80 tests/bin/*.test.js tests/plugins/*.test.js tests/lib/*.test.js",
     "blockPRCreation": true,
     "blockTaskCompletion": true,
     "description": "Orchestrator agents MUST run this command before marking a task complete or creating a PR. Thresholds are the current floor, not the 100% aspiration — raise them when coverage improves, and never lower them to make a change pass. If coverage drops below any threshold, the task fails."
