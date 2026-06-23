@@ -61,7 +61,7 @@ Anyone maintaining several repositories accumulates glue: "open the dirty repo",
         └───────────────────────────┘        │  format · fs · path  │
                       │                        └──────────────────────┘
                       ▼                              ▲ real impl in prod
-            YouTrack / Bitbucket / AWS               ▲ fakes in tests
+            YouTrack / AWS                           ▲ fakes in tests
 ```
 
 **Plugin contract** — each file in `plugins/` exports:
@@ -86,7 +86,7 @@ module.exports = {
 | `context.format` | `table(headers, rows)` | ASCII tables |
 | `context.fs`, `context.path`, `context.develRoot` | Node built-ins + repo root | filesystem helpers |
 
-**Configuration model.** Each tool reads a user dotfile (`~/.youtrack`, `~/.bitbucket`) in `KEY=value` form, with environment variables taking precedence and code shipping generic defaults. The CDK tool reads git-ignored `config/cdk.json` (template: `config/cdk.example.json`). The source tree contains **no** real accounts, domains, hostnames, or tokens.
+**Configuration model.** Each tool reads a user dotfile (`~/.youtrack`) in `KEY=value` form, with environment variables taking precedence and code shipping generic defaults. The CDK tool reads git-ignored `config/cdk.json` (template: `config/cdk.example.json`). The source tree contains **no** real accounts, domains, hostnames, or tokens.
 
 **Testing model.** `node:test` only. No network, ever. HTTP and shell are replaced by fakes (`tests/helpers/mock-*.js`) that match requests and replay JSON fixtures (`tests/fixtures/`). Coverage is enforced against `.coverage-thresholds.json`.
 
@@ -97,10 +97,11 @@ module.exports = {
 | Command | What it does |
 |---|---|
 | `mini yt` | YouTrack: queue, board, search, create/edit/move tickets, comments, links, tags, `config` |
-| `mini bb` | Bitbucket: list local repos with BB remotes, list/compare workspace repos |
 | `mini cdk` | Deploy static web apps to AWS (CDK + CloudFront + S3) via an interactive wizard |
 
-These are the author's tools; they are also meant as **three worked examples** of the plugin contract at increasing complexity (read-only → paginated API → interactive multi-step orchestration).
+These are the author's tools; they are also meant as **two worked examples** of the plugin contract at increasing complexity (paginated read/write API client → interactive multi-step orchestration).
+
+> A third plugin, `bb` (Bitbucket), was removed — it was unused and bypassed the injected-`context` seam (see [`docs/self-assessment.md`](docs/self-assessment.md)). A design handoff for any future reimplementation lives in [`docs/bitbucket-plugin-handoff.md`](docs/bitbucket-plugin-handoff.md).
 
 ---
 

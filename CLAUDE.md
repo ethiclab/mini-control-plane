@@ -17,7 +17,7 @@ This project has [metaswarm](https://github.com/dsifry/metaswarm) installed but 
 - Test command: `npm test` (= `node --test tests/plugins/*.test.js tests/lib/*.test.js`)
 - Coverage command: `node --test --experimental-test-coverage --test-coverage-exclude='tests/**' --test-coverage-lines=100 --test-coverage-functions=100 --test-coverage-branches=100 tests/plugins/*.test.js tests/lib/*.test.js` (excludes `tests/` so the gate measures only `lib/` + `plugins/` production code)
 - Test runner is Node's built-in `node:test` — **no test framework dependency**. Keep it that way.
-- **Fakes over live calls**: network/IO services (YouTrack, Bitbucket, AWS, `exec`) are tested through extensible simulators in `tests/helpers/` (`mock-https.js`, `mock-context.js`, `mock-exec.js`) backed by recorded fixtures in `tests/fixtures/`. To cover a new branch, capture the real interaction from the tool's logs, drop a new fixture JSON, and let the simulator replay it — add data, not mock logic. Keep recorded fixtures (what the server returned) separate from simulator logic (how the fake picks a fixture).
+- **Fakes over live calls**: network/IO services (YouTrack, AWS, `exec`) are tested through extensible simulators in `tests/helpers/` (`mock-context.js`, `mock-exec.js`) backed by recorded fixtures in `tests/fixtures/`. To cover a new branch, capture the real interaction from the tool's logs, drop a new fixture JSON, and let the simulator replay it — add data, not mock logic. Keep recorded fixtures (what the server returned) separate from simulator logic (how the fake picks a fixture).
 
 ## Coverage
 
@@ -43,6 +43,6 @@ When dispatching subagents (coding or review), they must:
 ## Key Decisions
 
 - **Zero-dependency by design** — `mini` is a plugin dispatcher built only on Node built-ins. The test runner is `node:test`, coverage is native (`--experimental-test-coverage`). Reaching 100% must not require adding a test framework, mocking library, or coverage tool. If a task seems to need one, stop and reconsider.
-- **Record-and-replay fake services** — External integrations (YouTrack, Bitbucket, AWS, shell `exec`) are never hit live in tests. They are replayed through extensible simulators in `tests/helpers/` against recorded fixtures in `tests/fixtures/`. Coverage of error/edge branches (timeouts, 401/404, malformed JSON/XML, non-zero exit codes) is achieved by capturing real interactions from the tool's own logs and adding them as new fixtures. **Invariant:** recorded fixtures (raw server responses) stay separate from simulator logic (how a fake selects a fixture for a request) — extend the fakes by adding data files, not by editing mock code.
+- **Record-and-replay fake services** — External integrations (YouTrack, AWS, shell `exec`) are never hit live in tests. They are replayed through extensible simulators in `tests/helpers/` against recorded fixtures in `tests/fixtures/`. Coverage of error/edge branches (timeouts, 401/404, malformed JSON/XML, non-zero exit codes) is achieved by capturing real interactions from the tool's own logs and adding them as new fixtures. **Invariant:** recorded fixtures (raw server responses) stay separate from simulator logic (how a fake selects a fixture for a request) — extend the fakes by adding data files, not by editing mock code.
 
 <!-- Add further project-specific notes or constraints below. -->

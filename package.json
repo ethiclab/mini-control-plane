@@ -6,8 +6,7 @@
   "scripts": {
     "test": "node --test tests/plugins/*.test.js tests/lib/*.test.js",
     "test:watch": "node --test --watch tests/plugins/*.test.js tests/lib/*.test.js",
-    "test:yt": "node --test tests/plugins/yt.test.js",
-    "test:bb": "node --test tests/plugins/bitbucket.test.js"
+    "test:yt": "node --test tests/plugins/yt.test.js"
   },
   "engines": {
     "node": ">=18"
