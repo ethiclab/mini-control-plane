@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const path = require('path');
 const fs = require('fs');
 
-const { captureOutput } = require('../helpers/mock-exec');
+const { captureOutput } = require('../helpers/capture-output');
 const { createMockContext, urlMatcher, anyMatcher } = require('../helpers/mock-context');
 
 const plugin = require('../../plugins/yt');
@@ -956,5 +956,31 @@ describe('yt plugin — tag', async () => {
     const ctx = createMockContext([]);
     const { exitCode } = await runExpectingExit(ctx, ['tag']);
     assert.equal(exitCode, 1);
+  });
+});
+
+describe('yt plugin — base URL is per-invocation (no module global leak)', () => {
+  let origBase;
+  beforeEach(() => { origBase = process.env.YT_BASE; });
+  afterEach(() => {
+    if (origBase === undefined) delete process.env.YT_BASE;
+    else process.env.YT_BASE = origBase;
+  });
+
+  async function firstIssuesUrl(base) {
+    process.env.YT_BASE = base;
+    const ctx = createMockContext([getMatcher('/api/issues', [])]);
+    await plugin.run(['DEMO', 'open'], ctx);
+    return ctx._calls.find((c) => c.url.includes('/api/issues')).url;
+  }
+
+  test('due run consecutivi con YT_BASE diversi colpiscono host diversi', async () => {
+    const urlA = await firstIssuesUrl('https://aaa.example.com');
+    assert.ok(urlA.startsWith('https://aaa.example.com'), `atteso host aaa, ricevuto ${urlA}`);
+
+    // Nessun YT_BASE module-level: il secondo run NON deve ereditare il primo.
+    const urlB = await firstIssuesUrl('https://bbb.example.com');
+    assert.ok(urlB.startsWith('https://bbb.example.com'), `atteso host bbb, ricevuto ${urlB}`);
+    assert.ok(!urlB.startsWith('https://aaa.example.com'), 'il run B non deve ereditare la base del run A');
   });
 });
