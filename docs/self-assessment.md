@@ -1,98 +1,80 @@
-# A Friend's Audit: Holding `mini-control-plane` to Its Own Bar
+# A Friend's Audit — Round 2: What Changed
 
-A paid scanner recently scored this repo 40/100; we think the tool is fine and simply mis-scaled for a three-command personal CLI, so rather than argue a number we did the more useful thing and turned its own stated principles back on it. What follows is a self-assessment — strong where it needs to be, but from a friend who wants the project to live up to what its README promises.
+*An updated self-assessment of `mini-control-plane`, written for someone who read the first one. The prior audit is preserved in git history; this replaces it as the canonical record.*
 
-> **Update (post-audit):** the `bb` (Bitbucket) plugin was removed entirely — it was unused and was the locus of findings **#1** and **#2** below. Those two are **resolved by removal**; the orphaned `tests/helpers/mock-https.js` (which existed only because that plugin bypassed `ctx.http`) was removed with it. A design handoff for any future reimplementation lives in [`docs/bitbucket-plugin-handoff.md`](bitbucket-plugin-handoff.md). The remaining findings (#3–#5 and proportionality) still stand. The findings below are kept verbatim as the record that motivated the removal.
+Since the last audit we did one decisive thing: we **deleted the `bb` (Bitbucket) plugin**. It was unused, and it happened to be the locus of the two heaviest findings. This round re-reads the actual current tree (`plugins/` now holds only `yt.js` and `cdk.js`), reproduces the numbers, and asks the honest question: did removing it actually make the repo better, or did it just relocate the problems?
 
-## What the repo gets genuinely right
+The short answer: it genuinely improved the repo on the axis that matters most — the worst defect is gone at the source, and the central design bet now holds on **every** shipped plugin. But removal fixes only what removal can reach. Everything that required *discipline* rather than *deletion* is unchanged.
 
-Before the critique, credit where it's earned — specifically, not as throat-clearing.
+---
 
-- **The dispatcher is as thin as advertised.** `bin/mini` is 67 lines: discover plugins, build a context, route on `command`. It does exactly what Principle #2 says ("thin dispatcher, fat-free plugins") and nothing more. The plugin contract (`commands`, `describe`, `run(args, ctx)`) is uniform across all three plugins, so the "three worked examples at increasing complexity" framing in the README is accurate.
+## What changed since the last audit
 
-- **The injected-context seam is real, and it works.** This is the project's central bet — `createContext(develRoot)` (`lib/plugin-context.js:158`) hands plugins `http`, `shell`, `prompt`, `format`, `config`. In `plugins/cdk.js` and `plugins/yt.js` it is honored completely: every HTTP call, every shell-out, every prompt goes through `ctx`. That's *why* their tests replay recorded fixtures with zero network and zero monkeypatching. The thesis demonstrably holds for two of three plugins.
+| # | Finding (baseline) | Severity | Status now |
+|---|---|---|---|
+| 1 | `bb` destructured `{ DEVEL_ROOT }` while context exposes `develRoot` → `bb local`/`compare` crashed; the test reused the same wrong key, so the suite stayed green | HIGH | **RESOLVED** (plugin removed) |
+| 2 | "Inject the world" broken in `bb`: direct `require('https')` + `child_process` + `execSync` string interpolation, forcing a monkeypatch | MED | **RESOLVED** (plugin removed) |
+| — | Orphaned `tests/helpers/mock-https.js` (existed only for `bb`'s raw `https`) | — | **RESOLVED** (deleted with `bb`) |
+| 3 | "100% coverage" gate can't pass; `bin/mini` structurally excluded from scope | MED | **STILL OPEN** (now 83.46/80.21/86.60) |
+| 4 | Silent plugin-load swallow in `bin/mini` contradicts "fail loud" | LOW | **STILL OPEN** |
+| 5 | `yt.js` mutable module global `YT_BASE` | LOW | **STILL OPEN** |
+| — | Seven `.beads/knowledge/*.jsonl` near-empty; `bb` lesson never recorded | LOW | **STILL OPEN** |
 
-- **Zero-dependency is delivered, not just claimed.** `package.json` carries no `dependencies` and no `devDependencies`. The runner is `node:test`; coverage is native `--experimental-test-coverage`; the fakes (`mock-https`, `mock-context`, `mock-exec`) plus recorded fixtures are a clean, framework-free pattern. 106 tests pass, fast. This is the project's strongest principle and it fully holds.
+**Verified facts (reproduced this round):** 98 tests pass (down from 106 with `bb`'s tests gone), in well under half a second. Coverage on production code (`lib/` + `plugins/`, excluding `bin/`) is **83.46% lines / 80.21% branches / 86.60% functions** — up from the baseline 82.19 / 79.00 / 85.32. A small, real tick upward. `grep` across `plugins/` for `https` / `child_process` / `execSync` / `spawnSync` finds **only** the prose rule in `plugins/README.md:36`. The only `develRoot` reads (`cdk.js:31,34`) use the correct lowercase key matching `lib/plugin-context.js:180`. No residual key drift, no residual seam break.
 
-- **Secrets stay out of the tree, in practice.** `config/cdk.json` is gitignored and untracked; `cdk.example.json` ships only `000000000000` placeholders; credentials live in `$HOME` dotfiles; the Bitbucket token file is written `mode: 0o600`; `yt config` masks `TOKEN`/`PASSWORD`/`SECRET` keys. Principle #5 is lived, not just stated.
+### New this round
 
-- **The high-blast-radius path is the safe one.** `plugins/cdk.js` orchestrates a multi-step AWS deploy entirely through `ctx.shell.run`/`capture` with **argument arrays** (no shell strings), passes the AWS profile via env, threads CDK context as discrete `-c key=value` array entries, and gates destructive operations behind an STS identity check and an interactive confirmation. This is the design working under real complexity.
+- **`tests/helpers/mock-exec.js` is now dead monkeypatch scaffolding.** `[LOW]` `[NEW]` It still does `const cp = require('child_process')` and reassigns `cp.execSync` (lines 20, 57, 60, 74) — the exact anti-pattern the README rejects — but `withExecMock` and *its own* `urlMatcher`/`anyMatcher` are no longer imported by any test. (To be precise: the `urlMatcher`/`anyMatcher` the tests actually use come from `mock-context.js:57`, imported at `yt.test.js:9`. Only `captureOutput` is consumed from `mock-exec.js`, at `yt.test.js:8` and `cdk.test.js:8`.) So roughly lines 1–77 of `mock-exec.js` are dead — the direct parallel to the `mock-https.js` orphan we *did* sweep. The cleanup stopped one file short.
+- **The *structural cause* of #1 was never addressed.** `[MED]` `[CARRY-OVER, sharpened]` The acute crash is gone, but the mechanism that *hid* it still stands: `createMockContext` (`mock-context.js:14-55`) is a hand-rolled object literal with a hardcoded `develRoot: '/tmp/test-devel'` and a `config.read` (lines 37–44) that ignores the dotfile entirely and substitutes a fake token. It is **not** derived from, nor validated against, the real `createContext`. The prior audit itself prescribed "a single shared fake-context helper… to stop this class of drift permanently" — that fix was not built. If a future plugin drifts on a context key, a matching wrong key in this fake could again let the suite stay green on a real crash.
+- **Two unguarded field accesses in `yt.js`.** `[LOW]` `[NEW]` `showQueue`/`listIssues`/`searchIssues` render `issue.idReadable.padEnd(...)` and `issue.summary.substring(...)` (yt.js:337, 403, 445) with no null guard. A YouTrack issue missing a `summary` would throw a raw `Cannot read properties of undefined` stack trace instead of the project's curated `✗` error. This is a thin robustness edge, not a likely crash — YouTrack reliably returns these fields for the explicit field-list queries the code issues — so keep it firmly LOW: a one-line defensive default, not a systemic fail-loud violation.
 
-- **Fail-loud is exemplary where it's applied.** Missing YouTrack token and missing Bitbucket credentials (`plugins/bitbucket.js:121-133`) exit non-zero and name exactly what to add and where.
+### Explicitly *not* a finding
 
-That foundation is what makes the following critique fair: the gaps below are inconsistencies against a genuinely good design, not symptoms of a bad one.
+An earlier draft flirted with faulting both plugins for calling `require('fs')`/`path`/`os` directly instead of `ctx.fs`/`ctx.path`. That is **not** a real violation. `plugins/README.md:36` binds only `https` and `child_process` ("è ciò che rende i plugin testabili offline"); `fs`/`path` are deterministic, `cdk.js` tests drive real temp dirs via `MINI_CDK_CONFIG`, and coverage is not blocked by it. At most this is a one-line README clarification (say plainly that only `http`/`shell`/`prompt` *must* be injected). It is not a seam break and is not counted against the project.
 
-## Where the repo falls short of its own principles
+---
 
-### 1. A shipped crash, and a test shaped to hide it — `[HIGH]`
+## Verdict
 
-`createContext` exposes `develRoot` (lowercase, `lib/plugin-context.js:180`). But `plugins/bitbucket.js:66` destructures the context as `async run(args, { DEVEL_ROOT })` (uppercase), then calls `path.join(DEVEL_ROOT, '..')` at lines 71 and 152. There is no `DEVEL_ROOT` on the real context, so the value is `undefined`. Reproduced directly:
+**The repo improved — really, but partially.** The single highest-severity finding (`[HIGH]` #1, a shipped crash masked by a complicit test) and the most important architectural finding (`[MED]` #2, the broken "inject the world" seam) are both **resolved at the source**, not papered over. With `bb` gone, the injected-context thesis — the project's central bet — now holds on **2 of 2** shipped plugins instead of 2 of 3: every HTTP call, every subprocess, every prompt in `yt.js` and `cdk.js` flows through `ctx`. The removal was disciplined: plugin, its test, *and* the orphaned `mock-https.js` were swept together, with a forward-looking `docs/bitbucket-plugin-handoff.md` preserved rather than silently dropped. The README was correctly updated to "two worked examples" / "YouTrack / AWS." That is the responsible way to retire dead code.
 
-```
-$ node bin/mini bb local
-The "path" argument must be of type string. Received undefined
-```
+What removal could **not** fix, it did not fix. Every process-and-discipline carry-over survives unchanged: the always-red coverage gate, the untested entry point, the silent plugin-load swallow, the `YT_BASE` global, and seven near-empty knowledge files. And the cleanup left two new low-stakes residues (dead `mock-exec` machinery, plus the stale prose this document now replaces). So: a real step up in **code health and architectural consistency**, no movement on **process-vs-prose honesty**. Proportionate to a ~1,200-line, two-command, single-author, zero-dependency personal CLI, that is a good trade — but let's not call deleting a plugin a transformation.
 
-Two of the three Bitbucket subcommands (`local`, `compare`) crash on invocation. Worse is *why the suite stays green*: the test hand-builds its own context with the same wrong key —
+---
 
-```js
-// tests/plugins/bitbucket.test.js:13
-const CONTEXT = { DEVEL_ROOT: path.join(__dirname, '../..'), path, fs };
-```
+## Current standing
 
-So the test and the bug agree, and 106 passing tests *validate* the defect rather than catch it. This is the most important finding precisely because it's a textbook demonstration of the project's own thesis: injecting the world only protects you if the test world matches the real one. `cdk.js:31` reads `ctx.develRoot` correctly — the Bitbucket plugin is simply inconsistent with its siblings.
+### Genuine strengths that hold
 
-**Fix:** destructure `{ develRoot }` (update lines 66/71/152), delete the local `CONTEXT` literal, and have the test consume the real `createContext(...)` output. A single shared fake-context helper for all plugin tests would stop this class of drift permanently.
+- **The two worst baseline defects are gone, not hidden.** Verified by `grep`: `DEVEL_ROOT` appears only as `bin/mini`'s own local const; no plugin requires `https`/`child_process` or interpolates a shell string on any executed path.
+- **The injected-context seam now holds on 100% of shipped plugins.** `cdk.js` orchestrates a genuinely high-blast-radius AWS deploy/destroy entirely through `ctx.shell` with **argument arrays** (no string interpolation; the one interpolated string at `cdk.js:252` is display-only, printed for the user to copy), gated behind an STS `get-caller-identity` check and an explicit interactive confirm before any destructive action. The design earns its keep under real complexity.
+- **Zero-dependency is delivered, not merely claimed.** No `dependencies`, no `devDependencies`; runner is `node:test`; coverage is native `--experimental-test-coverage`; fakes replay recorded JSON fixtures with no network and no monkeypatching of production code. 98 tests pass fast. Coverage even ticked up post-removal.
+- **Secrets discipline is lived.** `config/cdk.json` gitignored with `000000000000` placeholder account IDs, a `MINI_CDK_CONFIG` test escape hatch, `$HOME` dotfile for YouTrack, and `yt config` masks `TOKEN`/`PASSWORD`/`SECRET` keys (`yt.js:220`).
+- **The dispatcher is as thin as advertised** (`bin/mini`, 67 lines: discover, build context, route) and the `commands` / `describe` / `run(args, ctx)` contract is uniform — the abstraction is still holdable in one sitting.
+- **The project audits itself and acts.** It ran the prior audit, fixed its top two findings, and kept a written record. That responsiveness is itself a strength.
 
-### 2. "Inject the world" — broken in the one plugin that touches the world — `[MED]`
+### Findings that remain (stated freshly)
 
-Principle #3 — the one the README calls *"the single design decision that makes 100% offline tests possible,"* and which `plugins/README.md:36` restates in bold ("never use `require('https')`/`child_process` directly") — is violated on every path in `plugins/bitbucket.js`. It does `const https = require('https')` at module load (line 3), `const { execSync } = require('child_process')` inside `run` (line 67), and builds shell strings by interpolation:
+- **`[MED]` `[CARRY-OVER]` The 100% coverage gate cannot pass and silently excludes the entry point.** `.coverage-thresholds.json` declares `lines/branches/functions/statements: 100` with `blockPRCreation: true` and `blockTaskCompletion: true`, while reproduced coverage is 83.46 / 80.21 / 86.60. The enforcement command globs only `tests/plugins` and `tests/lib`, so `bin/mini` — version path, unknown-command path, the silent-catch — is never executed by the gated suite and never measured. The largest gap shifted from `bb` to `lib/plugin-context.js` at **58.15% lines** (32–111: prompts, `httpRequest`, `shellRun`/`shellCapture`, `readConfig`). The fault is narrow and fair: not "coverage too low" (CLAUDE.md is candid the 100% target is aspirational), but a machine-readable PR/task-blocking config that an obedient agent would never satisfy. A gate that is always red is identical to no gate.
+- **`[MED]` `[CARRY-OVER, sharpened]` The drift-prevention behind #1 was never built.** `createMockContext` re-declares the context shape by hand instead of deriving it from the real `createContext`, and re-implements `config.read` with different semantics (ignores the dotfile). The acute bug is gone; the latent risk class the self-assessment itself named is still here.
+- **`[LOW]` `[CARRY-OVER]` Silent plugin-load swallow vs. "fail loud."** `bin/mini:14-18` catches a `require()` failure, writes a one-line stderr warning, and continues; if the broken plugin owned the typed command, the dispatcher then reports a misleading `Unknown command` (the cause and the symptom are decoupled). Defensible as resilience — which is why it stays LOW and reads as a design tension, not a defect — but it is the one spot that fails quiet.
+- **`[LOW]` `[CARRY-OVER]` `yt.js` mutable module global.** `let YT_BASE` (yt.js:5) is reassigned at runtime inside `run()` (yt.js:579) and read by `ytGet`/`ytPost` (26, 30) and `showIssue`'s attachment URLs (366). Harmless in a one-shot CLI, but the lone piece of shared mutable state in a file whose every sibling concern flows through `ctx`.
+- **`[LOW]` `[NEW]` Dead `mock-exec.js` machinery.** Only `captureOutput` is used; `withExecMock` + the `child_process` monkeypatch are orphaned — the unfinished half of the `mock-https.js` sweep.
+- **`[LOW]` `[NEW]` Unguarded `issue.summary.substring` / `idReadable.padEnd`** (yt.js:337, 403, 445) — a partial API response would surface as a raw stack trace. Thin edge, defensive-default fix.
+- **`[LOW]` `[CARRY-OVER]` Provisioned-but-empty knowledge base.** The seven `.beads/knowledge/*.jsonl` files are still 4 lines each (28 total) — unchanged foreign-project example stubs (TypeScript/Prisma/Vite), unrelated to this Node CLI. Notably, the `bb`-removal lesson — a textbook "the test world must match the real world" learning the prior audit *nominated as the obvious first entry* — was never recorded there; it lives only in prose. CLAUDE.md legitimately runs metaswarm in lightweight mode, so a sparse KB is a fair choice; the only sharp edge is scaffolding that signals more rigor than is exercised.
 
-```js
-execSync(`find "${clusterRoot}" -maxdepth 4 -name "config" -path "*/.git/config"`, ...)  // :76
-execSync(`git -C "${repoDir}" remote -v`, ...)                                            // :82
-```
+---
 
-Two consequences, in order of importance:
+## What's still worth doing (prioritized)
 
-1. **The seam is broken**, so these paths can't be exercised by the record-and-replay fakes — which is exactly why the test resorts to monkeypatching `cp.execSync = () => ''` (`tests/plugins/bitbucket.test.js:150`), violating Principle #6 ("add a fixture, not mock logic") as a direct downstream effect. `compare` (lines 152-183) ends up uncovered entirely.
-2. **A small injection surface**, which is genuinely **low** risk: `clusterRoot`/`repoDir` are locally derived from a `find` walk under `develRoot/..`, not user input. An attacker would already need write access under the cluster root. Worth fixing for correctness and seam-hygiene, not because it's an imminent breach.
+1. **Align the coverage gate with reality, then ratchet.** Set thresholds to the honest current floor (~83 / 80 / 86) with `blockPRCreation`/`blockTaskCompletion` reflecting a number actually met, and raise them as fixtures grow — exactly the incremental path CLAUDE.md already advocates. The biggest single win is fixtures for `lib/plugin-context.js`'s prompt/http/shell branches.
+2. **Add `tests/bin/mini.test.js` and fold `bin/` into the coverage scope** (or document explicitly that the dispatcher is out of scope). It has real branches — version, unknown-command, the silent catch — and right now none are measured.
+3. **Make the plugin-load failure explicit.** Keep loading the other plugins, but track failures and, when a command isn't found, say `command X unavailable: plugin Y failed to load: <err>` instead of a generic `Unknown command`. Connect cause to symptom.
+4. **Sweep the dead `mock-exec` machinery.** Move `captureOutput` into its own `capture-output.js` and delete `withExecMock` + the `child_process` require — finish the cleanup that `mock-https.js` started.
+5. **Thread `YT_BASE` through `cfg`/`ctx`** into `ytGet`/`ytPost`/`showIssue` and drop the module-level `let`. Small, mechanical, removes the only mutable singleton.
+6. **Build the shared fake-context helper** the prior audit prescribed: derive `createMockContext` from the real `createContext` so any context-shape change surfaces in one place. This closes the *class* of bug #1 belonged to.
+7. **Either populate or prune the `.beads` stubs.** The `bb`-removal / test-world-drift lesson is the perfect first real entry in `gotchas.jsonl` + `decisions.jsonl`; if the KB isn't being used, delete the seven foreign-project stubs to match the project's own "readable in one sitting" bar.
 
-**Fix:** route `find`/`git` through `ctx.shell.capture` with argument arrays (`cdk.js` shows how), then cover `local`/`compare` with the standard fixture approach and drop the monkeypatch.
+---
 
-### 3. The "100% coverage" story has three cracks — `[MED]` / `[LOW]`
-
-- **The gate can't pass.** `.coverage-thresholds.json` declares `lines/branches/functions/statements: 100` with `blockPRCreation: true` and `blockTaskCompletion: true`. The actual enforced command reports **82.19% lines / 79.00% branches / 85.32% functions** (reproduced). An honest agent running the documented gate before a PR blocks itself every time. CLAUDE.md is admirably candid that 100% is aspirational and not yet met — so the fault is not dishonesty, it's that a machine-readable, PR-blocking config disagrees with the committed prose. A gate that is always red is identical to no gate. `[MED]`
-
-- **The headline omits the entry point.** The enforcement command globs only `tests/plugins/*.test.js` and `tests/lib/*.test.js`. `grep -rn bin/mini tests/` returns nothing — the 67-line dispatcher every invocation runs through is **0% covered and not even counted**. "100% on production code" carries an unstated asterisk: it means `lib/` + `plugins/` only. `[LOW]`
-
-**Fix:** set thresholds to the real current floor and ratchet upward (the incremental approach CLAUDE.md already advocates), reserving `blockPRCreation: true` for a number you actually meet; add a small `tests/bin/mini.test.js` and fold `bin/` into the coverage scope, or state plainly in the README that the figure excludes the dispatcher.
-
-### 4. "Fail loud" vs. the silent plugin-load swallow — `[LOW]`
-
-`bin/mini:14-18` wraps `require()` of each plugin in a `try/catch` that writes a one-line stderr warning and continues. A plugin with a syntax error doesn't crash the tool — its command simply vanishes from `help`, and invoking it later reports the misleading `Unknown command: X` rather than the real cause. Resilience (one bad plugin shouldn't kill the others) is a legitimate choice, which is why this is `[LOW]` and debatable rather than a bug — but it's the *unstated opposite* of a loudly-declared principle. Make the choice explicit: either name the dropped command and have "Unknown command" hint that a load failed this run, or document load errors as intentionally non-fatal. Either way, pin it with a test.
-
-### 5. A real (small) wart in `yt.js` — `[LOW]`
-
-`yt.js` at 614 lines holding ~16 verbs is, frankly, still plausibly readable in one sitting — it's clean, well-factored into named functions, and the README's Principle #7 challenge doesn't clearly fail here. We won't overstate it. The genuine, falsifiable smell is the **reassigned module-level global**: `let YT_BASE = '...'` (`yt.js:5`) is mutated at runtime inside `run` (`YT_BASE = cfg.YT_BASE || YT_BASE`, line 579) and read by builders and `showIssue` (line 366). That's shared mutable state in a file whose siblings pass everything through `ctx`. Thread `YT_BASE` through `cfg`/`ctx` instead; if a split ever feels warranted, the loader already ignores `_`-prefixed files.
-
-## Proportionality: is the ceremony earning its keep?
-
-This is a fair, common-sense question — and one the README *invites* by openly asking whether zero-dependency is "a virtue or a vanity." Around ~1,420 lines of production code sit metaswarm, a BEADS knowledge base, PR-blocking coverage gates, and an RFC-grade README. Most of this is fine, and some of it is genuinely admirable: CLAUDE.md explicitly declares metaswarm runs in "lightweight mode" with no mandatory pipeline, and the self-critical README posture is exactly right. So this is a *watch-the-trend* note, not a fault.
-
-The one narrow, verifiable point: the BEADS knowledge files are provisioned but near-empty — each of the seven `.beads/knowledge/*.jsonl` files is ~4 lines. They signal a practice not yet exercised. That's the gap to close, and the `DEVEL_ROOT` bug above is a perfect first entry. Either populate them with real gotchas or drop the stubs; scaffolding that suggests more rigor than it delivers is the only place rigor tips into ceremony here.
-
-We are explicitly **not** faulting the repo for being small, single-author, zero-dependency, or `node:test`-based — those are intended and well-executed. Nor the Italian-English string mixing, the emoji output, or the CLI-token-in-history detail (the `0o600` write shows the author cares; for a solo local tool the exposure is the user's own shell history — a minor consistency aside at most).
-
-## What's actually worth fixing, in priority order
-
-1. **Fix the `DEVEL_ROOT` → `develRoot` crash** and make plugin tests consume the real `createContext` so the test world can't drift from the runtime world again. `[HIGH]`
-2. **Stand up CI** that runs `npm test` on push, so green-but-wrong (finding #1) and an unenforced gate stop being possible at the same time.
-3. **Add a `bin/mini` test** (load, dispatch, unknown-command, the silent-load branch) and fold `bin/` into the coverage scope — or state the scope explicitly.
-4. **Move `bitbucket.js` onto `ctx.shell`/`ctx.http`**, which closes the seam break, the injection surface, and the monkeypatch all at once.
-5. **Align the coverage gate with reality** — real floor + ratchet, or relabel as aspirational with enforcement off.
-6. **Thread `YT_BASE` through `ctx`/`cfg`** to remove the mutable global; optionally split out pure helpers.
-
-## Closing
-
-This is a well-architected little tool that mostly honors a deliberately high bar — and the places it slips are precisely the places that bar predicts. The repo asks, in its own README, whether zero-dependency is a virtue or a vanity. The honest answer isn't rhetorical: it's a virtue exactly as long as the discipline it buys is *exercised* — the seam used everywhere, the gate green and meaningful, the entry point tested, the knowledge base actually written down. Keep testing that in practice, not just in prose, and the 40/100 from a mis-scaled scanner stays as irrelevant as it should be.
+The README leaves one question open: *is zero-dependency a virtue or a vanity?* This round gives the strongest evidence yet that it is a virtue. The discipline was tested the only way that counts — under pressure to keep a convenient, already-written plugin that quietly broke the rule — and the project chose to delete it rather than carry it. What remains now honors the seam on every path: no plugin reaches around `ctx` for the network or the shell, the tests replay fixtures with zero monkeypatching of production code, and the whole thing still fits in your head. The remaining work is bookkeeping — making the committed gates and docs tell the same true story the code now tells. A constraint you'll delete working code to preserve isn't vanity. It's a load-bearing wall.
