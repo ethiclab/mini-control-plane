@@ -1,13 +1,14 @@
 'use strict';
 
 // L'istanza YouTrack (host) NON è nel repo: impostala in ~/.youtrack come
-// YT_BASE=https://tua-istanza.youtrack.cloud (o via env YT_BASE).
-let YT_BASE = 'https://your-instance.youtrack.cloud';
+// YT_BASE=https://tua-istanza.youtrack.cloud (o via env YT_BASE). Il valore
+// risolto a runtime vive su ctx.ytBase (per-invocazione), non in un global mutabile.
+const YT_BASE_DEFAULT = 'https://your-instance.youtrack.cloud';
 
 // Default GENERICI (placeholder). I valori reali della tua istanza/board vanno
 // in ~/.youtrack (o via env): YT_AGILE_ID, le colonne, progetto, priorità, ecc.
 const CONFIG_DEFAULTS = {
-  YT_BASE: YT_BASE,
+  YT_BASE: YT_BASE_DEFAULT,
   YT_AGILE_ID: '0-0',
   YT_SPRINT_ID: 'current',
   YT_WIP_COLUMN: 'In Progress',
@@ -22,12 +23,16 @@ const CONFIG_DEFAULTS = {
 
 const CONFIG_KEYS = ['YT_TOKEN', ...Object.keys(CONFIG_DEFAULTS)];
 
+function ytBase(ctx) {
+  return ctx.ytBase || YT_BASE_DEFAULT;
+}
+
 function ytGet(endpoint, token, ctx) {
-  return ctx.http.request('GET', `${YT_BASE}${endpoint}`, { token });
+  return ctx.http.request('GET', `${ytBase(ctx)}${endpoint}`, { token });
 }
 
 function ytPost(endpoint, token, body, ctx) {
-  return ctx.http.request('POST', `${YT_BASE}${endpoint}`, { token, body });
+  return ctx.http.request('POST', `${ytBase(ctx)}${endpoint}`, { token, body });
 }
 
 function buildStateField(stateName) {
@@ -363,7 +368,7 @@ async function showIssue(issueId, token, ctx) {
     for (const att of issue.attachments) {
       const size = att.size ? ` (${(att.size / 1024).toFixed(1)} KB)` : '';
       console.log(`  📎 ${att.name}${size}${att.mimeType ? ` [${att.mimeType}]` : ''}${att.author?.login ? `  by ${att.author.login}` : ''}${att.created ? `  ${new Date(att.created).toLocaleDateString('it-IT')}` : ''}`);
-      if (att.url) console.log(`     ${YT_BASE}${att.url}`);
+      if (att.url) console.log(`     ${ytBase(ctx)}${att.url}`);
     }
   }
   try {
@@ -576,7 +581,7 @@ module.exports = {
 
     const cfg = ctx.config.read(CONFIG_KEYS, '~/.youtrack', CONFIG_DEFAULTS);
     if (!cfg.YT_TOKEN) tokenError();
-    YT_BASE = cfg.YT_BASE || YT_BASE;
+    ctx.ytBase = cfg.YT_BASE || YT_BASE_DEFAULT;
     const token = cfg.YT_TOKEN;
 
     if (!arg0) {
