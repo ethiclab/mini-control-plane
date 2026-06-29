@@ -10,8 +10,6 @@ const { createMockContext } = require('../helpers/mock-context');
 
 const plugin = require('../../plugins/cdk');
 
-// Profili/bundle reali stanno in config/cdk.json (gitignored); i test usano una
-// fixture deterministica via MINI_CDK_CONFIG, così non dipendono dall'ambiente.
 const FIXTURE_CONFIG = path.join(__dirname, '..', 'fixtures', 'cdk', 'cdk.json');
 let origCdkConfigEnv;
 before(() => { origCdkConfigEnv = process.env.MINI_CDK_CONFIG; process.env.MINI_CDK_CONFIG = FIXTURE_CONFIG; });
@@ -20,9 +18,9 @@ after(() => {
   else process.env.MINI_CDK_CONFIG = origCdkConfigEnv;
 });
 
-function ctxWithShell(shellCapture) {
+function ctxWithShell(captureFn) {
   const ctx = createMockContext([]);
-  ctx.shell.capture = shellCapture;
+  ctx.shell.capture = captureFn;
   ctx.shell.run = () => {};
   return ctx;
 }
@@ -65,8 +63,17 @@ describe('cdk plugin — help', () => {
 });
 
 describe('cdk plugin — profiles', () => {
+  test('mostra messaggio se nessun profilo trovato', async () => {
+    const ctx = ctxWithShell(() => ({ ok: true, stdout: '' }));
+    const out = await captureOutput(() => plugin.run(['profiles'], ctx));
+    assert.ok(out.stdout.includes('Nessun profilo AWS trovato'));
+  });
+
   test('elenca profili con fallback login required', async () => {
-    const ctx = ctxWithShell(() => ({ ok: false, error: 'No credentials' }));
+    const ctx = ctxWithShell((cmd, args) => {
+      if (args.includes('list-profiles')) return { ok: true, stdout: 'acme-test\nacme-prod\n' };
+      return { ok: false, error: 'No credentials' };
+    });
     const out = await captureOutput(() => plugin.run(['profiles'], ctx));
     assert.ok(out.stdout.includes('login required'));
     assert.ok(out.stdout.includes('acme-test'));
@@ -74,7 +81,10 @@ describe('cdk plugin — profiles', () => {
   });
 
   test('elenca profili con account ID se autenticato', async () => {
-    const ctx = ctxWithShell(() => ({ ok: true, stdout: '{"Account":"123456789012","Arn":"arn:aws:iam::123456789012:user/test","UserId":"AIDA..."}' }));
+    const ctx = ctxWithShell((cmd, args) => {
+      if (args.includes('list-profiles')) return { ok: true, stdout: 'acme-test\nacme-prod\n' };
+      return { ok: true, stdout: '{"Account":"123456789012","Arn":"arn:aws:iam::123456789012:user/test","UserId":"AIDA..."}' };
+    });
     const out = await captureOutput(() => plugin.run(['profiles'], ctx));
     assert.ok(out.stdout.includes('123456789012'));
     assert.ok(!out.stdout.includes('login required'));
@@ -131,5 +141,53 @@ describe('cdk plugin — status', () => {
     assert.equal(exitCode, 1);
     assert.ok(out.stderr.includes('Usage'));
     assert.ok(out.stderr.includes('status'));
+  });
+});
+
+describe('cdk plugin — fixture', () => {
+  test('fixture ha solo bundles (nessun profile)', () => {
+    const raw = JSON.parse(fs.readFileSync(FIXTURE_CONFIG, 'utf8'));
+    assert.ok(raw.bundles);
+    assert.ok(raw.bundles['web-a']);
+    assert.ok(raw.bundles['web-b']);
+    assert.equal(raw.profiles, undefined);
+  });
+});
+
+describe('cdk plugin — discover', () => {
+  test('cli profiles con sts error mostra login required', async () => {
+    const ctx = ctxWithShell((cmd, args) => {
+      if (args.includes('list-profiles')) return { ok: true, stdout: 'cli-only\n' };
+      return { ok: false, error: 'Unable to locate credentials' };
+    });
+    const out = await captureOutput(() => plugin.run(['profiles'], ctx));
+    assert.ok(out.stdout.includes('cli-only'));
+    assert.ok(out.stdout.includes('login required'));
+  });
+
+  test('sts con json invalido mostra login required', async () => {
+    const ctx = ctxWithShell((cmd, args) => {
+      if (args.includes('list-profiles')) return { ok: true, stdout: 'broken\n' };
+      return { ok: true, stdout: 'not-json-at-all' };
+    });
+    const out = await captureOutput(() => plugin.run(['profiles'], ctx));
+    assert.ok(out.stdout.includes('broken'));
+    assert.ok(out.stdout.includes('login required'));
+  });
+});
+
+describe('cdk plugin — bundles empty message', () => {
+  test('mostra messaggio se nessun bundle configurato', async () => {
+    const emptyConfig = path.join(__dirname, '..', 'fixtures', 'cdk', 'empty-bundles.json');
+    const orig = process.env.MINI_CDK_CONFIG;
+    process.env.MINI_CDK_CONFIG = emptyConfig;
+    try {
+      fs.writeFileSync(emptyConfig, JSON.stringify({ bundles: {} }), 'utf8');
+      const out = await captureOutput(() => plugin.run(['bundles'], createMockContext([])));
+      assert.ok(out.stdout.includes('nessun bundle configurato'));
+    } finally {
+      if (fs.existsSync(emptyConfig)) fs.unlinkSync(emptyConfig);
+      process.env.MINI_CDK_CONFIG = orig;
+    }
   });
 });

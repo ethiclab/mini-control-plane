@@ -1,25 +1,17 @@
 {
-  "$comment": "Copia questo file in config/cdk.json (gitignored) e inserisci i tuoi valori reali. profiles = profili AWS per i tuoi domini; bundles = webapp buildabili (repo relativo alla root del cluster, ~/<cluster>).",
-  "profiles": {
-    "example-test": {
-      "profile": "example-test",
-      "account": "000000000000",
-      "region": "eu-west-1",
-      "rootDomain": "test.example.com",
-      "defaultZoneName": "test.example.com"
-    },
-    "example-prod": {
-      "profile": "example-prod",
-      "account": "000000000000",
-      "region": "eu-west-1",
-      "rootDomain": "example.com",
-      "defaultZoneName": "example.com"
-    }
-  },
+  "$comment": "Config locale (gitignored) popolato da mini cdk. Questo file è l'example trackato. Copia in `config/cdk.json` se vuoi valori di default statici, altrimenti lascia che `mini cdk` lo popoli automaticamente dalle scelte interattive.",
   "bundles": {
-    "app": {
-      "repo": "cluster/app-ui",
-      "buildScript": "scripts/projects/app/buildStatic.sh"
+    "onceui": {
+      "repo": "eleven/onceui",
+      "buildScript": "scripts/build-aws.sh"
+    },
+    "backoffice-ui": {
+      "repo": "eleven/backoffice-ui",
+      "buildScript": "scripts/build-aws.sh"
+    },
+    "survey-ui": {
+      "repo": "eleven/survey-ui",
+      "buildScript": "scripts/build-aws.sh"
     }
   }
 }
